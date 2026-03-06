@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MultiTrans — Hệ Thống Dịch Đa API</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --accent3: #ff4488;
+    --text: #e8e8f0;
+    --muted: #666680;
+    --success: #00ff88;
+    --warning: #ffaa00;
+    --error: #ff4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 20px; }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .logo h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .header-pills { display: flex; gap: 10px; align-items: center; }
+  .pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+  .server-status {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+  .server-status.ok { border-color: var(--accent); color: var(--accent); background: rgba(0,255,136,0.08); }
+  .server-status.err { border-color: var(--error); color: var(--error); background: rgba(255,68,68,0.08); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* STATS */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 5px; }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* MAIN LAYOUT */
+  .main-grid { display: grid; grid-template-columns: 290px 1fr; gap: 20px; }
+
+  /* SIDEBAR */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .card-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+
+  /* API ITEMS */
+  .api-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+  .api-item:hover { border-color: rgba(0,255,136,0.3); }
+  .api-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .api-name { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 13px; }
+  .api-badge { font-size: 9px; padding: 2px 7px; border-radius: 10px; font-family: 'JetBrains Mono', monospace; }
+  .badge-free { background: rgba(0,255,136,0.12); color: var(--accent); border: 1px solid rgba(0,255,136,0.25); }
+  .badge-daily { background: rgba(255,170,0,0.12); color: var(--warning); border: 1px solid rgba(255,170,0,0.25); }
+  .api-status { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: all 0.3s; }
+  .api-status.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .api-status.error { background: var(--error); box-shadow: 0 0 6px var(--error); }
+  .api-status.working { background: var(--warning); animation: pulse 0.4s infinite; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .toggle-label { font-size: 11px; color: var(--muted); }
+  .toggle {
+    width: 36px; height: 20px;
+    background: var(--border); border-radius: 10px;
+    position: relative; cursor: pointer; transition: background 0.2s;
+    border: none; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute;
+    width: 14px; height: 14px; background: white;
+    border-radius: 50%; top: 3px; left: 3px; transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(16px); }
+
+  .field-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    margin-bottom: 5px; outline: none; transition: border-color 0.2s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input::placeholder { color: var(--muted); }
+
+  .key-list { display: flex; flex-direction: column; gap: 5px; }
+  .key-row { display: flex; gap: 5px; align-items: center; }
+  .key-row .field-input { margin-bottom: 0; flex: 1; }
+  .btn-icon {
+    width: 28px; height: 28px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0; transition: all 0.2s;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-icon.rm:hover { border-color: var(--error); color: var(--error); }
+  .add-btn {
+    width: 100%; background: transparent; border: 1px dashed var(--border);
+    border-radius: 8px; color: var(--muted); padding: 5px;
+    cursor: pointer; font-size: 11px; transition: all 0.2s; margin-top: 5px;
+    font-family: 'Syne', sans-serif;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .save-config-btn {
+    width: 100%; background: linear-gradient(135deg,rgba(0,255,136,0.15),rgba(0,136,255,0.15));
+    border: 1px solid var(--accent); border-radius: 10px;
+    color: var(--accent); padding: 10px; font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .save-config-btn:hover { background: linear-gradient(135deg,rgba(0,255,136,0.25),rgba(0,136,255,0.25)); }
+
+  /* SETTINGS */
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 12px; }
+  .setting-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .number-input {
+    width: 60px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; text-align: center; outline: none;
+  }
+
+  /* CONTENT */
+  .content { display: flex; flex-direction: column; gap: 16px; }
+
+  .mode-tabs {
+    display: flex; background: var(--surface2); border-radius: 10px; padding: 4px; gap: 4px;
+  }
+  .mode-tab {
+    flex: 1; padding: 8px; border: none; border-radius: 7px;
+    background: transparent; color: var(--muted); font-family: 'Syne', sans-serif;
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .mode-tab.active { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+  .lang-bar {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .lang-select {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600;
+    outline: none; cursor: pointer; transition: border-color 0.2s;
+  }
+  .lang-select:focus { border-color: var(--accent); }
+  .swap-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; transition: all 0.3s; color: var(--muted); flex-shrink: 0;
+  }
+  .swap-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(180deg); }
+
+  .trans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .trans-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .trans-box-header {
+    padding: 11px 15px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2);
+  }
+  .trans-box-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .char-count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  textarea {
+    flex: 1; background: transparent; border: none;
+    padding: 14px; color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 15px; line-height: 1.7; resize: none; outline: none; min-height: 190px;
+  }
+  textarea::placeholder { color: var(--muted); }
+
+  .trans-result {
+    flex: 1; padding: 14px; font-size: 15px; line-height: 1.7;
+    color: var(--text); min-height: 190px; white-space: pre-wrap; word-break: break-word;
+  }
+  .trans-result.empty { color: var(--muted); font-style: italic; }
+  .trans-result.loading { color: var(--warning); }
+
+  .trans-box-footer {
+    padding: 9px 14px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2); gap: 8px;
+  }
+  .api-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    padding: 2px 9px; border-radius: 20px; border: 1px solid rgba(0,255,136,0.3);
+    background: rgba(0,255,136,0.08); color: var(--accent);
+  }
+  .cache-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    padding: 2px 9px; border-radius: 20px; border: 1px solid rgba(255,170,0,0.3);
+    background: rgba(255,170,0,0.08); color: var(--warning);
+  }
+  .foot-actions { display: flex; gap: 6px; }
+  .btn-sm {
+    background: transparent; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--muted); padding: 4px 12px; font-size: 11px; cursor: pointer;
+    transition: all 0.2s; font-family: 'JetBrains Mono', monospace;
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+  .translate-btn {
+    width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 14px; padding: 15px; color: #000;
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+    cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+    transition: all 0.2s; position: relative;
+  }
+  .translate-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(0,255,136,0.3); }
+  .translate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .translate-btn .btn-loader {
+    display: none; width: 20px; height: 20px;
+    border: 2px solid rgba(0,0,0,0.3); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.6s linear infinite; margin: 0 auto;
+  }
+  .translate-btn.loading .btn-text { display: none; }
+  .translate-btn.loading .btn-loader { display: block; }
+
+  /* FILE/BULK */
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 12px;
+    padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s;
+  }
+  .drop-zone:hover { border-color: var(--accent); background: rgba(0,255,136,0.03); }
+  .drop-zone-icon { font-size: 40px; margin-bottom: 12px; }
+  .drop-zone-text { color: var(--muted); font-size: 13px; }
+
+  /* LOG */
+  .log-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .log-header {
+    padding: 11px 18px; border-bottom: 1px solid var(--border);
+    background: var(--surface2); display: flex; align-items: center; justify-content: space-between;
+  }
+  .log-body {
+    height: 150px; overflow-y: auto; padding: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+  .log-body::-webkit-scrollbar { width: 3px; }
+  .log-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .log-entry { display: flex; gap: 10px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-type { flex-shrink: 0; width: 55px; }
+  .log-msg { color: var(--text); }
+  .log-info .log-type { color: var(--accent2); }
+  .log-success .log-type { color: var(--accent); }
+  .log-warn .log-type { color: var(--warning); }
+  .log-error .log-type { color: var(--error); }
+  .btn-clear { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 3px 10px; font-size: 10px; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.2s; }
+  .btn-clear:hover { border-color: var(--error); color: var(--error); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 20px; font-size: 13px;
+    z-index: 9999; transform: translateY(80px); opacity: 0; transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.ok { border-color: var(--accent); }
+  .toast.err { border-color: var(--error); }
+
+  /* BULK RESULT */
+  .bulk-result-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; margin-bottom: 8px;
+  }
+  .bulk-orig { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .bulk-trans { font-size: 14px; color: var(--text); }
+  .bulk-meta { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+  @media (max-width: 960px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .trans-grid { grid-template-columns: 1fr; }
+    .stats-bar { grid-template-columns: repeat(3, 1fr); }
+    .header-pills { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1>Multi<span>Trans</span></h1>
+      </div>
+    </div>
+    <div class="header-pills">
+      <div class="server-status" id="server-status">● Kiểm tra server...</div>
+      <div class="pill"><span class="dot"></span><span id="h-apis">0</span> APIs bật</div>
+      <div class="pill">Cache <span id="h-cache">0</span></div>
+      <div class="pill">Req <span id="h-req">0</span></div>
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-value" id="s-chars">0</div><div class="stat-label">Ký tự dịch</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-req">0</div><div class="stat-label">API Requests</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-cache">0</div><div class="stat-label">Cache hits</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-err">0</div><div class="stat-label">Fallbacks</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-chunks">0</div><div class="stat-label">Đoạn xử lý</div></div>
+  </div>
+
+  <div class="main-grid">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-title">⚙ CẤU HÌNH API</div>
+
+        <!-- MyMemory -->
+        <div class="api-item">
+          <div class="api-header">
+            <div class="api-name">① MyMemory <span class="api-badge badge-daily">50K/ngày</span></div>
+            <div class="api-status" id="st-mymemory"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bật</span>
+            <button class="toggle on" id="tog-mymemory" onclick="this.classList.toggle('on'); syncConfig()"></button>
+          </div>
+          <div class="key-list" id="keys-mymemory">
+            <div class="key-row">
+              <input class="field-input" type="email" placeholder="email@gmail.com">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+          </div>
+          <button class="add-btn" onclick="addRow('keys-mymemory','email@gmail.com','email')">＋ Thêm email</button>
+        </div>
+
+        <!-- LibreTranslate -->
+        <div class="api-item">
+          <div class="api-header">
+            <div class="api-name">② LibreTranslate <span class="api-badge badge-free">Unlimited</span></div>
+            <div class="api-status" id="st-libretranslate"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bật</span>
+            <button class="toggle on" id="tog-libretranslate" onclick="this.classList.toggle('on'); syncConfig()"></button>
+          </div>
+          <div class="key-list" id="keys-libretranslate">
+            <div class="key-row">
+              <input class="field-input" type="text" value="https://libretranslate.com">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+            <div class="key-row">
+              <input class="field-input" type="text" value="https://translate.argosopentech.com">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+          </div>
+          <button class="add-btn" onclick="addRow('keys-libretranslate','https://...','text')">＋ Thêm server URL</button>
+          <input class="field-input" type="password" id="libre-key" placeholder="API Key (nếu có, để trống nếu không)" style="margin-top:6px;">
+        </div>
+
+        <!-- Lingva -->
+        <div class="api-item">
+          <div class="api-header">
+            <div class="api-name">③ Lingva <span class="api-badge badge-free">Unlimited</span></div>
+            <div class="api-status" id="st-lingva"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bật</span>
+            <button class="toggle on" id="tog-lingva" onclick="this.classList.toggle('on'); syncConfig()"></button>
+          </div>
+          <div class="key-list" id="keys-lingva">
+            <div class="key-row">
+              <input class="field-input" type="text" value="https://lingva.ml">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+            <div class="key-row">
+              <input class="field-input" type="text" value="https://lingva.thedaviddelta.com">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+            <div class="key-row">
+              <input class="field-input" type="text" value="https://translate.plausibility.cloud">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+          </div>
+          <button class="add-btn" onclick="addRow('keys-lingva','https://...','text')">＋ Thêm instance</button>
+        </div>
+
+        <!-- Argos -->
+        <div class="api-item">
+          <div class="api-header">
+            <div class="api-name">④ Argos <span class="api-badge badge-free">Open Source</span></div>
+            <div class="api-status" id="st-argos"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bật</span>
+            <button class="toggle on" id="tog-argos" onclick="this.classList.toggle('on'); syncConfig()"></button>
+          </div>
+          <div class="key-list" id="keys-argos">
+            <div class="key-row">
+              <input class="field-input" type="text" value="https://translate.argosopentech.com">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+          </div>
+          <button class="add-btn" onclick="addRow('keys-argos','https://...','text')">＋ Thêm server</button>
+        </div>
+
+        <!-- Smartcat -->
+        <div class="api-item">
+          <div class="api-header">
+            <div class="api-name">⑤ Smartcat <span class="api-badge badge-free">Free tier</span></div>
+            <div class="api-status" id="st-smartcat"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Bật</span>
+            <button class="toggle" id="tog-smartcat" onclick="this.classList.toggle('on'); syncConfig()"></button>
+          </div>
+          <div class="key-list" id="keys-smartcat">
+            <div class="key-row">
+              <input class="field-input" type="text" placeholder="Account ID">
+              <button class="btn-icon rm" onclick="removeRow(this)">✕</button>
+            </div>
+          </div>
+          <input class="field-input" type="password" id="smartcat-key" placeholder="API Key" style="margin-top:6px;">
+          <button class="add-btn" onclick="addRow('keys-smartcat','Account ID','text')">＋ Thêm account</button>
+        </div>
+
+        <button class="save-config-btn" onclick="syncConfig()">💾 Lưu cấu hình → Server</button>
+      </div>
+
+      <!-- Settings -->
+      <div class="card">
+        <div class="card-title">⚡ TÙY CHỈNH</div>
+        <div class="setting-row">
+          <div><div class="setting-label">Threads song song</div><div class="setting-sub">Đoạn dịch cùng lúc</div></div>
+          <input class="number-input" type="number" id="cfg-threads" value="3" min="1" max="10">
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Max ký tự/đoạn</div><div class="setting-sub">Tự chia text lớn</div></div>
+          <input class="number-input" type="number" id="cfg-chunk" value="500" min="100" max="5000">
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Cache kết quả</div><div class="setting-sub">Không gọi lại API</div></div>
+          <button class="toggle on" id="tog-cache" onclick="this.classList.toggle('on')"></button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Xóa cache</div><div class="setting-sub" id="cache-count">0 entries</div></div>
+          <button class="btn-sm" onclick="clearCache()">Xóa</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="card" style="padding:14px 18px;">
+        <div class="mode-tabs">
+          <button class="mode-tab active" onclick="setMode('text',this)">📝 Văn bản</button>
+          <button class="mode-tab" onclick="setMode('file',this)">📄 File .txt</button>
+          <button class="mode-tab" onclick="setMode('bulk',this)">📦 Hàng loạt</button>
+        </div>
+      </div>
+
+      <div class="lang-bar">
+        <select class="lang-select" id="src-lang">
+          <option value="auto">🌐 Tự động</option>
+          <option value="en">🇬🇧 Anh</option>
+          <option value="zh">🇨🇳 Trung</option>
+          <option value="ja">🇯🇵 Nhật</option>
+          <option value="ko">🇰🇷 Hàn</option>
+          <option value="fr">🇫🇷 Pháp</option>
+          <option value="de">🇩🇪 Đức</option>
+          <option value="es">🇪🇸 Tây Ban Nha</option>
+          <option value="ru">🇷🇺 Nga</option>
+          <option value="vi">🇻🇳 Việt</option>
+          <option value="th">🇹🇭 Thái</option>
+          <option value="pt">🇧🇷 Bồ Đào Nha</option>
+          <option value="it">🇮🇹 Ý</option>
+          <option value="ar">🇸🇦 Ả Rập</option>
+        </select>
+        <button class="swap-btn" onclick="swapLangs()">⇄</button>
+        <select class="lang-select" id="tgt-lang">
+          <option value="vi">🇻🇳 Việt</option>
+          <option value="en">🇬🇧 Anh</option>
+          <option value="zh">🇨🇳 Trung</option>
+          <option value="ja">🇯🇵 Nhật</option>
+          <option value="ko">🇰🇷 Hàn</option>
+          <option value="fr">🇫🇷 Pháp</option>
+          <option value="de">🇩🇪 Đức</option>
+          <option value="es">🇪🇸 Tây Ban Nha</option>
+          <option value="ru">🇷🇺 Nga</option>
+          <option value="th">🇹🇭 Thái</option>
+          <option value="pt">🇧🇷 Bồ Đào Nha</option>
+          <option value="it">🇮🇹 Ý</option>
+          <option value="ar">🇸🇦 Ả Rập</option>
+        </select>
+      </div>
+
+      <!-- TEXT MODE -->
+      <div id="mode-text">
+        <div class="trans-grid">
+          <div class="trans-box">
+            <div class="trans-box-header">
+              <span class="trans-box-label">Văn bản gốc</span>
+              <span class="char-count" id="in-chars">0 ký tự</span>
+            </div>
+            <textarea id="in-text" placeholder="Nhập văn bản cần dịch..." oninput="document.getElementById('in-chars').textContent=this.value.length+' ký tự'"></textarea>
+            <div class="trans-box-footer">
+              <div class="foot-actions">
+                <button class="btn-sm" onclick="document.getElementById('in-text').value='';document.getElementById('in-chars').textContent='0 ký tự'">🗑 Xóa</button>
+                <button class="btn-sm" onclick="navigator.clipboard.readText().then(t=>{document.getElementById('in-text').value=t})">📋 Dán</button>
+              </div>
+            </div>
+          </div>
+          <div class="trans-box">
+            <div class="trans-box-header">
+              <span class="trans-box-label">Kết quả</span>
+              <span id="out-meta"></span>
+            </div>
+            <div class="trans-result empty" id="out-text">Kết quả sẽ hiện ở đây...</div>
+            <div class="trans-box-footer">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <span id="api-tag" style="display:none" class="api-tag"></span>
+                <span id="cache-tag" style="display:none" class="cache-tag">⚡ CACHE</span>
+              </div>
+              <button class="btn-sm" onclick="copyResult()">📋 Sao chép</button>
+            </div>
+          </div>
+        </div>
+        <button class="translate-btn" id="trans-btn" onclick="doTranslate()">
+          <span class="btn-text">⚡ DỊCH NGAY &nbsp;(Ctrl+Enter)</span>
+          <div class="btn-loader"></div>
+        </button>
+      </div>
+
+      <!-- FILE MODE -->
+      <div id="mode-file" style="display:none;">
+        <div class="drop-zone" id="drop-zone"
+          onclick="document.getElementById('file-in').click()"
+          ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+          ondragleave="this.style.borderColor='var(--border)'"
+          ondrop="handleDrop(event)">
+          <div class="drop-zone-icon">📄</div>
+          <div class="drop-zone-text">Kéo thả file .txt vào đây hoặc click để chọn</div>
+          <input type="file" id="file-in" accept=".txt" style="display:none" onchange="loadFile(this.files[0])">
+        </div>
+        <div id="file-loaded" style="display:none;margin-top:14px;">
+          <div class="trans-box" style="margin-bottom:12px;">
+            <div class="trans-box-header">
+              <span class="trans-box-label" id="file-name">File</span>
+              <span class="char-count" id="file-chars">0 ký tự</span>
+            </div>
+            <div class="trans-result" id="file-preview" style="max-height:180px;overflow-y:auto;font-size:13px;"></div>
+          </div>
+          <button class="translate-btn" id="file-btn" onclick="doFileTranslate()">
+            <span class="btn-text">⚡ DỊCH FILE NÀY</span>
+            <div class="btn-loader"></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- BULK MODE -->
+      <div id="mode-bulk" style="display:none;">
+        <div class="card">
+          <div class="card-title">📦 Mỗi dòng là một đoạn riêng</div>
+          <textarea id="bulk-in" placeholder="Dòng 1 cần dịch&#10;Dòng 2 cần dịch&#10;Dòng 3..."
+            style="width:100%;min-height:140px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-family:'Syne',sans-serif;font-size:14px;outline:none;resize:vertical;margin-bottom:12px;"></textarea>
+          <button class="translate-btn" id="bulk-btn" onclick="doBulkTranslate()">
+            <span class="btn-text">⚡ DỊCH TẤT CẢ</span>
+            <div class="btn-loader"></div>
+          </button>
+          <div id="bulk-out" style="margin-top:14px;"></div>
+        </div>
+      </div>
+
+      <!-- LOG -->
+      <div class="log-panel">
+        <div class="log-header">
+          <div class="card-title" style="margin:0;">📋 ACTIVITY LOG</div>
+          <button class="btn-clear" onclick="document.getElementById('log-body').innerHTML='';addLog('Log đã xóa','info')">Xóa</button>
+        </div>
+        <div class="log-body" id="log-body"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:5000/api';
+let stats = { chars: 0, req: 0, cache: 0, err: 0, chunks: 0 };
+let serverOk = false;
+let fileContent = '';
+let currentMode = 'text';
+
+// ─── LOG ──────────────────────────────────────────
+function addLog(msg, type='info') {
+  const body = document.getElementById('log-body');
+  const t = new Date().toTimeString().slice(0,8);
+  const cls = {info:'log-info',success:'log-success',warn:'log-warn',error:'log-error'};
+  const lbl = {info:'[INFO]  ',success:'[OK]    ',warn:'[WARN]  ',error:'[ERR]   '};
+  const d = document.createElement('div');
+  d.className = `log-entry ${cls[type]||'log-info'}`;
+  d.innerHTML = `<span class="log-time">${t}</span><span class="log-type">${lbl[type]||'[INFO]'}</span><span class="log-msg">${msg}</span>`;
+  body.appendChild(d);
+  body.scrollTop = body.scrollHeight;
+}
+
+// ─── TOAST ────────────────────────────────────────
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = (type==='ok'?'✅ ':'❌ ') + msg;
+  el.className = `toast show ${type}`;
+  setTimeout(() => el.className = 'toast', 2500);
+}
+
+// ─── STATS ────────────────────────────────────────
+function updateStats() {
+  document.getElementById('s-chars').textContent = stats.chars.toLocaleString();
+  document.getElementById('s-req').textContent = stats.req;
+  document.getElementById('s-cache').textContent = stats.cache;
+  document.getElementById('s-err').textContent = stats.err;
+  document.getElementById('s-chunks').textContent = stats.chunks;
+  document.getElementById('h-req').textContent = stats.req;
+  // cache count from server
+  fetch(`${API}/cache/stats`).then(r=>r.json()).then(d=>{
+    document.getElementById('h-cache').textContent = d.size;
+    document.getElementById('cache-count').textContent = d.size + ' entries';
+  }).catch(()=>{});
+  // active apis
+  const active = ['mymemory','libretranslate','lingva','argos','smartcat']
+    .filter(a => document.getElementById(`tog-${a}`)?.classList.contains('on')).length;
+  document.getElementById('h-apis').textContent = active;
+}
+
+// ─── SERVER PING ──────────────────────────────────
+async function pingServer() {
+  try {
+    const r = await fetch(`${API}/ping`, {signal: AbortSignal.timeout(2000)});
+    const data = await r.json();
+    serverOk = data.status === 'ok';
+    const el = document.getElementById('server-status');
+    el.textContent = '● Server OK';
+    el.className = 'server-status ok';
+    addLog('Kết nối server thành công tại localhost:5000', 'success');
+  } catch {
+    serverOk = false;
+    const el = document.getElementById('server-status');
+    el.textContent = '● Server offline';
+    el.className = 'server-status err';
+    addLog('Không kết nối được server. Chạy: python server.py', 'error');
+  }
+}
+
+// ─── CONFIG SYNC ──────────────────────────────────
+function getKeysFromList(id) {
+  return Array.from(document.querySelectorAll(`#${id} input`)).map(i=>i.value.trim()).filter(Boolean);
+}
+
+async function syncConfig() {
+  const cfg = {
+    mymemory: {
+      enabled: document.getElementById('tog-mymemory').classList.contains('on'),
+      emails: getKeysFromList('keys-mymemory')
+    },
+    libretranslate: {
+      enabled: document.getElementById('tog-libretranslate').classList.contains('on'),
+      servers: getKeysFromList('keys-libretranslate'),
+      api_key: document.getElementById('libre-key').value.trim()
+    },
+    lingva: {
+      enabled: document.getElementById('tog-lingva').classList.contains('on'),
+      servers: getKeysFromList('keys-lingva')
+    },
+    argos: {
+      enabled: document.getElementById('tog-argos').classList.contains('on'),
+      servers: getKeysFromList('keys-argos')
+    },
+    smartcat: {
+      enabled: document.getElementById('tog-smartcat').classList.contains('on'),
+      accounts: getKeysFromList('keys-smartcat').map(id => ({
+        account_id: id,
+        api_key: document.getElementById('smartcat-key').value.trim()
+      }))
+    }
+  };
+  try {
+    await fetch(`${API}/config`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) });
+    addLog('Cấu hình đã được lưu vào server', 'success');
+    toast('Đã lưu cấu hình!');
+    updateStats();
+  } catch(e) {
+    addLog('Lỗi lưu config: ' + e.message, 'error');
+  }
+}
+
+// ─── KEY ROWS ─────────────────────────────────────
+function addRow(listId, ph, type='text') {
+  const list = document.getElementById(listId);
+  const row = document.createElement('div');
+  row.className = 'key-row';
+  row.innerHTML = `<input class="field-input" type="${type}" placeholder="${ph}"><button class="btn-icon rm" onclick="removeRow(this)">✕</button>`;
+  list.appendChild(row);
+}
+
+function removeRow(btn) {
+  const row = btn.parentElement;
+  if (row.parentElement.children.length > 1) row.remove();
+  else row.querySelector('input').value = '';
+}
+
+// ─── MODES ────────────────────────────────────────
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['text','file','bulk'].forEach(m => document.getElementById(`mode-${m}`).style.display = m===mode?'':'none');
+}
+
+// ─── LANG SWAP ────────────────────────────────────
+function swapLangs() {
+  const s = document.getElementById('src-lang');
+  const t = document.getElementById('tgt-lang');
+  const sv = s.value === 'auto' ? 'en' : s.value, tv = t.value;
+  s.value = tv; t.value = sv;
+  const inp = document.getElementById('in-text'), out = document.getElementById('out-text');
+  if (!out.classList.contains('empty')) {
+    const tmp = inp.value; inp.value = out.textContent; out.textContent = tmp;
+  }
+}
+
+function copyResult() {
+  navigator.clipboard.writeText(document.getElementById('out-text').textContent)
+    .then(()=>toast('Đã sao chép!')).catch(()=>toast('Lỗi sao chép','err'));
+}
+
+// ─── TRANSLATION ──────────────────────────────────
+async function callTranslate(text) {
+  const src = document.getElementById('src-lang').value;
+  const tgt = document.getElementById('tgt-lang').value;
+  const useCache = document.getElementById('tog-cache').classList.contains('on');
+  const maxChunk = parseInt(document.getElementById('cfg-chunk').value) || 500;
+
+  await syncConfig();
+
+  const r = await fetch(`${API}/translate`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ text, source: src, target: tgt, cache: useCache, max_chunk: maxChunk })
+  });
+
+  if (!r.ok) throw new Error(`Server lỗi ${r.status}`);
+  return await r.json();
+}
+
+function setApiStatus(apis) {
+  ['mymemory','libretranslate','lingva','argos','smartcat'].forEach(a => {
+    const el = document.getElementById(`st-${a}`);
+    if (!el) return;
+    if (apis.includes(a)) { el.className = 'api-status active'; }
+    else { el.className = 'api-status'; }
+  });
+}
+
+async function doTranslate() {
+  const text = document.getElementById('in-text').value.trim();
+  if (!text) { toast('Vui lòng nhập văn bản!', 'err'); return; }
+  if (!serverOk) { toast('Server chưa chạy! Mở terminal: python server.py', 'err'); return; }
+
+  const btn = document.getElementById('trans-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  const out = document.getElementById('out-text');
+  out.className = 'trans-result loading'; out.textContent = '⚡ Đang dịch...';
+  document.getElementById('api-tag').style.display = 'none';
+  document.getElementById('cache-tag').style.display = 'none';
+
+  addLog(`Dịch ${text.length} ký tự...`, 'info');
+
+  try {
+    const data = await callTranslate(text);
+    out.className = 'trans-result'; out.textContent = data.translated;
+
+    const apiTag = document.getElementById('api-tag');
+    apiTag.textContent = data.apis_used.join(' + ');
+    apiTag.style.display = '';
+
+    if (data.from_cache) document.getElementById('cache-tag').style.display = '';
+
+    stats.chars += text.length;
+    stats.req++;
+    stats.chunks += data.chunks || 1;
+    if (data.from_cache) stats.cache++;
+    if (data.errors?.length) { stats.err += data.errors.length; data.errors.forEach(e => addLog(e, 'warn')); }
+
+    setApiStatus(data.apis_used);
+    addLog(`✓ Hoàn thành via ${data.apis_used.join(', ')} (${data.chunks} đoạn)`, 'success');
+    updateStats();
+    toast('Dịch xong!');
+  } catch(e) {
+    out.className = 'trans-result'; out.textContent = '❌ ' + e.message;
+    addLog(e.message, 'error'); toast(e.message, 'err');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// ─── FILE ─────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').style.borderColor = 'var(--border)';
+  loadFile(e.dataTransfer.files[0]);
+}
+
+function loadFile(file) {
+  if (!file?.name.endsWith('.txt')) { toast('Chỉ hỗ trợ .txt!', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    fileContent = e.target.result;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-chars').textContent = fileContent.length + ' ký tự';
+    document.getElementById('file-preview').textContent = fileContent.slice(0, 600) + (fileContent.length > 600 ? '...' : '');
+    document.getElementById('drop-zone').style.display = 'none';
+    document.getElementById('file-loaded').style.display = '';
+    addLog(`File: ${file.name} (${fileContent.length} ký tự)`, 'info');
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function doFileTranslate() {
+  if (!fileContent) { toast('Chưa có file!', 'err'); return; }
+  if (!serverOk) { toast('Server chưa chạy!', 'err'); return; }
+  const btn = document.getElementById('file-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  addLog(`Dịch file ${fileContent.length} ký tự...`, 'info');
+  try {
+    const data = await callTranslate(fileContent);
+    const blob = new Blob([data.translated], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'translated_output.txt'; a.click();
+    URL.revokeObjectURL(url);
+    stats.req++; stats.chars += fileContent.length; stats.chunks += data.chunks || 1;
+    updateStats();
+    addLog('File dịch xong, đã tải xuống', 'success');
+    toast('File đã tải xuống!');
+  } catch(e) {
+    addLog(e.message, 'error'); toast(e.message, 'err');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// ─── BULK ─────────────────────────────────────────
+async function doBulkTranslate() {
+  const lines = document.getElementById('bulk-in').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if (!lines.length) { toast('Không có dòng nào!', 'err'); return; }
+  if (!serverOk) { toast('Server chưa chạy!', 'err'); return; }
+  const btn = document.getElementById('bulk-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  const out = document.getElementById('bulk-out');
+  out.innerHTML = `<div style="color:var(--muted);font-size:13px;">Đang dịch ${lines.length} dòng...</div>`;
+  addLog(`Bulk: ${lines.length} dòng`, 'info');
+  try {
+    const combined = lines.join('\n');
+    const data = await callTranslate(combined);
+    const translated = data.translated.split('\n');
+    out.innerHTML = lines.map((orig, i) => `
+      <div class="bulk-result-item">
+        <div class="bulk-orig">Gốc: ${orig.slice(0,80)}${orig.length>80?'...':''}</div>
+        <div class="bulk-trans">${translated[i] || '❌ Lỗi'}</div>
+        <div class="bulk-meta">via ${data.apis_used?.join(', ') || 'N/A'}</div>
+      </div>`).join('');
+    stats.req++; stats.chunks += data.chunks || lines.length;
+    updateStats();
+    addLog(`Bulk xong: ${lines.length} dòng`, 'success');
+    toast(`Đã dịch ${lines.length} dòng!`);
+  } catch(e) {
+    addLog(e.message, 'error'); toast(e.message, 'err');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// ─── CLEAR CACHE ──────────────────────────────────
+async function clearCache() {
+  try {
+    const r = await fetch(`${API}/cache/clear`, {method:'POST'});
+    const d = await r.json();
+    addLog(`Cache đã xóa: ${d.cleared} entries`, 'success');
+    toast('Cache đã xóa!');
+    updateStats();
+  } catch(e) { addLog('Lỗi xóa cache: '+e.message, 'error'); }
+}
+
+// ─── KEYBOARD ─────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='Enter' && currentMode==='text') doTranslate();
+});
+
+// ─── INIT ─────────────────────────────────────────
+addLog('MultiTrans khởi động. Kiểm tra server...', 'info');
+pingServer();
+setInterval(pingServer, 15000);
+updateStats();
+</script>
+</body>
+</html>
